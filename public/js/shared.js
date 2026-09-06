@@ -3,8 +3,19 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+// Restaurar sesión si existe
+(async () => {
+  const raw = sessionStorage.getItem('oryndel_session');
+  if (raw) {
+    try {
+      const s = JSON.parse(raw);
+      await supabaseClient.auth.setSession(s);
+    } catch (_) {}
+  }
+})();
+
 function getCharacter() {
-  const raw = sessionStorage.getItem('eldoria_char');
+  const raw = sessionStorage.getItem('oryndel_char') || sessionStorage.getItem('eldoria_char');
   if (!raw) {
     window.location.href = '/';
     return null;
@@ -13,14 +24,12 @@ function getCharacter() {
 }
 
 function saveCharacterLocal(char) {
-  sessionStorage.setItem('eldoria_char', JSON.stringify(char));
+  sessionStorage.setItem('oryndel_char', JSON.stringify(char));
 }
 
 async function saveCharacterDB(char) {
   saveCharacterLocal(char);
-  const inv = typeof char.inventory === 'string' ? char.inventory : JSON.stringify(char.inventory || []);
-  const eq = typeof char.equipment === 'string' ? char.equipment : JSON.stringify(char.equipment || {});
-  await supabaseClient.from('characters').update({
+  const payload = {
     position_x: char.position_x,
     position_y: char.position_y,
     map_id: char.map_id,
@@ -29,10 +38,11 @@ async function saveCharacterDB(char) {
     gold: char.gold,
     level: char.level,
     xp: char.xp,
-    inventory: inv,
-    equipment: eq,
+    inventory: typeof char.inventory === 'string' ? JSON.parse(char.inventory) : (char.inventory || []),
+    equipment: typeof char.equipment === 'string' ? JSON.parse(char.equipment) : (char.equipment || {}),
     updated_at: new Date().toISOString()
-  }).eq('id', char.id);
+  };
+  await supabaseClient.from('characters').update(payload).eq('id', char.id);
 }
 
 function updateUI(char) {
@@ -46,7 +56,6 @@ function updateUI(char) {
   if (goldEl) goldEl.textContent = `🪙 ${char.gold}`;
 }
 
-// Simple dialogue system
 let dialogueQueue = [];
 let dialogueCallback = null;
 

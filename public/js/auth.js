@@ -1,31 +1,38 @@
-const SUPABASE_URL = 'https://eqvxurybiaroxkiwtodc.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxdnh1cnliaWFyb3hraXd0b2RjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2ODI4MTIsImV4cCI6MjEwNDI1ODgxMn0.UcTOxpCXKOeZwNTcV--lD7sy_aCa3iSbnz8lWfbqiuA';
-
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
+let supabase = null;
 let currentUser = null;
+let currentSession = null;
 
 const authScreen = document.getElementById('auth-screen');
 const charScreen = document.getElementById('char-screen');
 const errorEl = document.getElementById('auth-error');
 const charError = document.getElementById('char-error');
 
-async function rateLimitCheck() {
+async function initSupabase() {
   try {
-    const res = await fetch('/api/auth-check', { method: 'POST' });
-    if (res.status === 429) {
-      const data = await res.json();
-      errorEl.textContent = data.error || 'Demasiados intentos';
-      return false;
-    }
-  } catch (_) {}
-  return true;
+    const res = await fetch('/api/config');
+    const cfg = await res.json();
+    supabase = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
+  } catch {
+    // fallback
+    supabase = window.supabase.createClient(
+      'https://eqvxurybiaroxkiwtodc.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxdnh1cnliaWFyb3hraXd0b2RjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2ODI4MTIsImV4cCI6MjEwNDI1ODgxMn0.UcTOxpCXKOeZwNTcV--lD7sy_aCa3iSbnz8lWfbqiuA'
+    );
+  }
+}
+
+function setSession(session) {
+  currentSession = session;
+  if (session?.access_token) {
+    supabase.auth.setSession({
+      access_token: session.access_token,
+      refresh_token: session.refresh_token
+    });
+  }
 }
 
 document.getElementById('btn-login').onclick = async () => {
   errorEl.textContent = '';
-  if (!(await rateLimitCheck())) return;
-
   const email = document.getElementById('email').value.trim();
   const password = document.getElementById('password').value;
 
@@ -34,21 +41,27 @@ document.getElementById('btn-login').onclick = async () => {
     return;
   }
 
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) {
-    errorEl.textContent = error.message === 'Invalid login credentials'
-      ? 'Email o contraseña incorrectos'
-      : error.message;
-    return;
+  try {
+    const res = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      errorEl.textContent = data.error || 'Error al iniciar sesión';
+      return;
+    }
+    currentUser = data.user;
+    setSession(data.session);
+    showCharScreen();
+  } catch (err) {
+    errorEl.textContent = 'No se pudo conectar con el servidor';
   }
-  currentUser = data.user;
-  showCharScreen();
 };
 
 document.getElementById('btn-register').onclick = async () => {
   errorEl.textContent = '';
-  if (!(await rateLimitCheck())) return;
-
   const email = document.getElementById('email').value.trim();
   const password = document.getElementById('password').value;
 
@@ -57,30 +70,35 @@ document.getElementById('btn-register').onclick = async () => {
     return;
   }
 
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: { data: { username: email.split('@')[0] } }
-  });
+  try {
+    const res = await fetch('/api/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      errorEl.textContent = data.error || 'Error al crear la cuenta';
+      return;
+    }
 
-  if (error) {
-    errorEl.textContent = error.message;
-    return;
+    if (data.session) {
+      currentUser = data.user;
+      setSession(data.session);
+      errorEl.textContent = '';
+      showCharScreen();
+    } else {
+      errorEl.textContent = data.message || 'Cuenta creada. Ahora inicia sesión.';
+    }
+  } catch (err) {
+    errorEl.textContent = 'No se pudo conectar con el servidor';
   }
-
-  if (data.user && !data.session) {
-    errorEl.textContent = 'Cuenta creada. Revisa tu email para confirmar (si está activado) o inicia sesión.';
-    return;
-  }
-
-  currentUser = data.user;
-  errorEl.textContent = 'Cuenta creada correctamente.';
-  showCharScreen();
 };
 
 document.getElementById('btn-logout').onclick = async () => {
-  await supabase.auth.signOut();
+  if (supabase) await supabase.auth.signOut();
   currentUser = null;
+  currentSession = null;
   charScreen.classList.add('hidden');
   authScreen.classList.remove('hidden');
 };
@@ -109,10 +127,12 @@ async function loadCharacters() {
   data.forEach(char => {
     const div = document.createElement('div');
     div.className = 'char-card';
-    const progress = char.map_id === 'starting_island' ? 'Capítulo 1 - Willowbrook' : char.map_id;
+    const place = char.map_id === 'willowbrook' || char.map_id === 'valle_bruma'
+      ? 'Valle de Bruma'
+      : (char.map_id || 'Oryndel');
     div.innerHTML = `
       <span><strong>${char.name}</strong> — ${char.class} Lv.${char.level}<br>
-      <small style="color:#8a7a65">${progress}</small></span>
+      <small style="color:#8a7a65">${place}</small></span>
       <span style="color:#c4a35a">🪙 ${char.gold}</span>`;
     div.onclick = () => continueGame(char);
     list.appendChild(div);
@@ -141,13 +161,13 @@ document.getElementById('btn-create-char').onclick = async () => {
     max_mana: 40,
     position_x: 320,
     position_y: 280,
-    map_id: 'willowbrook',
+    map_id: 'valle_bruma',
     gold: 20,
-    inventory: JSON.stringify([
-      { id: 'wooden_sword', name: 'Espada de Madera', type: 'weapon', power: 5 },
-      { id: 'herb', name: 'Hierba Curativa', type: 'consumable', heal: 30, qty: 3 }
-    ]),
-    equipment: JSON.stringify({ weapon: 'wooden_sword' }),
+    inventory: [
+      { id: 'iron_blade', name: 'Hoja de Hierro Viejo', type: 'weapon', power: 6 },
+      { id: 'ember_herb', name: 'Hierba de Brasas', type: 'consumable', heal: 35, qty: 3 }
+    ],
+    equipment: { weapon: 'iron_blade' },
     stats: { str: 12, agi: 10, int: 8, vit: 11 }
   }).select().single();
 
@@ -160,16 +180,23 @@ document.getElementById('btn-create-char').onclick = async () => {
 };
 
 function continueGame(char) {
-  // Save selected character to sessionStorage and go to overworld
-  sessionStorage.setItem('eldoria_char', JSON.stringify(char));
-  sessionStorage.setItem('eldoria_user', currentUser.id);
+  sessionStorage.setItem('oryndel_char', JSON.stringify(char));
+  sessionStorage.setItem('oryndel_user', currentUser.id);
+  if (currentSession) {
+    sessionStorage.setItem('oryndel_session', JSON.stringify({
+      access_token: currentSession.access_token,
+      refresh_token: currentSession.refresh_token
+    }));
+  }
   window.location.href = '/overworld.html';
 }
 
-// Auto login if session exists
-supabase.auth.getSession().then(({ data: { session } }) => {
+(async () => {
+  await initSupabase();
+  const { data: { session } } = await supabase.auth.getSession();
   if (session) {
     currentUser = session.user;
+    currentSession = session;
     showCharScreen();
   }
-});
+})();

@@ -11,9 +11,18 @@ const server = http.createServer(app);
 
 const PORT = process.env.PORT || 3000;
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://eqvxurybiaroxkiwtodc.supabase.co';
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxdnh1cnliaWFyb3hraXd0b2RjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2ODI4MTIsImV4cCI6MjEwNDI1ODgxMn0.UcTOxpCXKOeZwNTcV--lD7sy_aCa3iSbnz8lWfbqiuA';
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || '';
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+// Cliente con permisos completos (solo servidor, nunca en el frontend)
+const supabaseAdmin = SUPABASE_SERVICE_ROLE_KEY
+  ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+      auth: { autoRefreshToken: false, persistSession: false },
+      realtime: { transport: ws }
+    })
+  : null;
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxdnh1cnliaWFyb3hraXd0b2RjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2ODI4MTIsImV4cCI6MjEwNDI1ODgxMn0.UcTOxpCXKOeZwNTcV--lD7sy_aCa3iSbnz8lWfbqiuA', {
   realtime: { transport: ws }
 });
 
@@ -21,12 +30,24 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Health
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', game: 'Eldoria RPG', mode: 'story', persistent: true });
+  res.json({
+    status: 'ok',
+    game: 'Oryndel: Crown of Embers',
+    serviceRole: !!supabaseAdmin,
+    persistent: true
+  });
 });
 
-// Simple rate-limit helper for auth endpoints (in-memory, resets on restart - fine for MVP)
+// Config pública para el frontend (solo anon)
+app.get('/api/config', (req, res) => {
+  res.json({
+    supabaseUrl: SUPABASE_URL,
+    supabaseAnonKey: SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxdnh1cnliaWFyb3hraXd0b2RjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2ODI4MTIsImV4cCI6MjEwNDI1ODgxMn0.UcTOxpCXKOeZwNTcV--lD7sy_aCa3iSbnz8lWfbqiuA'
+  });
+});
+
+// Rate limit login attempts
 const loginAttempts = new Map();
 function checkRateLimit(ip) {
   const now = Date.now();
@@ -37,7 +58,7 @@ function checkRateLimit(ip) {
   }
   entry.count++;
   loginAttempts.set(ip, entry);
-  return entry.count <= 12; // max 12 attempts / 15 min
+  return entry.count <= 15;
 }
 
 app.post('/api/auth-check', (req, res) => {
@@ -48,12 +69,101 @@ app.post('/api/auth-check', (req, res) => {
   res.json({ ok: true });
 });
 
-// Fallback
+// Registro vía servidor (usa service role si está disponible → más fiable)
+app.post('/api/register', async (req, res) => {
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  if (!checkRateLimit(ip)) {
+    return res.status(429).json({ error: 'Demasiados intentos. Espera 15 minutos.' });
+  }
+
+  const { email, password } = req.body || {};
+  if (!email || !password || password.length < 8) {
+    return res.status(400).json({ error: 'Email válido y contraseña de al menos 8 caracteres' });
+  }
+
+  try {
+    const client = supabaseAdmin || supabase;
+    const { data, error } = await client.auth.signUp({
+      email: email.trim(),
+      password,
+      options: {
+        data: { username: email.split('@')[0] },
+        emailRedirectTo: undefined
+      }
+    });
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    // Si tenemos service role y el usuario se creó pero no hay sesión (confirm email),
+    // intentamos generar sesión o avisar claramente
+    if (data.user && !data.session && supabaseAdmin) {
+      // Auto-confirmar si es posible (solo con service role)
+      try {
+        await supabaseAdmin.auth.admin.updateUserById(data.user.id, {
+          email_confirm: true
+        });
+        const { data: loginData, error: loginErr } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password
+        });
+        if (!loginErr && loginData.session) {
+          return res.json({
+            user: loginData.user,
+            session: loginData.session,
+            message: 'Cuenta creada e iniciada'
+          });
+        }
+      } catch (_) {}
+    }
+
+    res.json({
+      user: data.user,
+      session: data.session,
+      message: data.session
+        ? 'Cuenta creada'
+        : 'Cuenta creada. Si pide confirmación de email, actívala o desactiva Confirm email en Supabase.'
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Error al registrar' });
+  }
+});
+
+app.post('/api/login', async (req, res) => {
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  if (!checkRateLimit(ip)) {
+    return res.status(429).json({ error: 'Demasiados intentos. Espera 15 minutos.' });
+  }
+
+  const { email, password } = req.body || {};
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Email y contraseña requeridos' });
+  }
+
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password
+    });
+    if (error) {
+      return res.status(401).json({
+        error: error.message === 'Invalid login credentials'
+          ? 'Email o contraseña incorrectos'
+          : error.message
+      });
+    }
+    res.json({ user: data.user, session: data.session });
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Error al iniciar sesión' });
+  }
+});
+
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 server.listen(PORT, () => {
-  console.log(`Eldoria RPG running on port ${PORT}`);
-  console.log('Story mode - data persists in Supabase');
+  console.log(`Oryndel running on port ${PORT}`);
+  console.log('Service role:', supabaseAdmin ? 'enabled' : 'not set (add SUPABASE_SERVICE_ROLE_KEY)');
 });
