@@ -1,0 +1,212 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Courier New', monospace;
+  background: #0a0a12;
+  color: #e0e0ff;
+  overflow: hidden;
+  height: 100vh;
+}
+
+.screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(ellipse at center, #1a1a2e 0%, #0a0a12 70%);
+}
+
+.hidden {
+  display: none !important;
+}
+
+.panel {
+  background: #16162a;
+  border: 3px solid #4a4a8a;
+  border-radius: 8px;
+  padding: 2rem;
+  min-width: 320px;
+  box-shadow: 0 0 30px rgba(100, 100, 255, 0.3);
+  text-align: center;
+}
+
+.panel.wide {
+  min-width: 480px;
+}
+
+h1 {
+  font-size: 2.2rem;
+  color: #a0a0ff;
+  text-shadow: 0 0 10px #6060ff;
+  margin-bottom: 0.3rem;
+}
+
+.subtitle {
+  color: #8888aa;
+  margin-bottom: 1.5rem;
+  font-size: 0.9rem;
+}
+
+input, select {
+  display: block;
+  width: 100%;
+  padding: 0.7rem;
+  margin: 0.5rem 0;
+  background: #0e0e1c;
+  border: 2px solid #3a3a6a;
+  color: #e0e0ff;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 1rem;
+}
+
+input:focus, select:focus {
+  outline: none;
+  border-color: #7070ff;
+}
+
+button {
+  width: 100%;
+  padding: 0.8rem;
+  margin: 0.4rem 0;
+  background: #4040aa;
+  border: none;
+  color: white;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: bold;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+button:hover {
+  background: #5050cc;
+}
+
+button.secondary {
+  background: #2a2a4a;
+}
+
+button.secondary:hover {
+  background: #3a3a6a;
+}
+
+.error {
+  color: #ff6b6b;
+  margin-top: 0.8rem;
+  font-size: 0.85rem;
+  min-height: 1.2rem;
+}
+
+#char-list {
+  text-align: left;
+  max-height: 200px;
+  overflow-y: auto;
+  margin-bottom: 1rem;
+}
+
+.char-card {
+  background: #1e1e38;
+  border: 2px solid #3a3a6a;
+  padding: 0.8rem;
+  margin: 0.4rem 0;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.char-card:hover {
+  border-color: #7070ff;
+  background: #252545;
+}
+
+/* Game UI */
+#game-screen {
+  background: #000;
+}
+
+#game-container {
+  width: 100%;
+  height: 100%;
+}
+
+#ui {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+#player-info {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  background: rgba(10, 10, 20, 0.85);
+  border: 2px solid #4a4a8a;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  display: flex;
+  gap: 16px;
+  pointer-events: auto;
+}
+
+#chat-box {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  width: 360px;
+  background: rgba(10, 10, 20, 0.85);
+  border: 2px solid #4a4a8a;
+  border-radius: 6px;
+  pointer-events: auto;
+}
+
+#chat-messages {
+  height: 140px;
+  overflow-y: auto;
+  padding: 8px;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+#chat-messages .msg {
+  margin-bottom: 4px;
+}
+
+#chat-messages .name {
+  color: #a0a0ff;
+  font-weight: bold;
+}
+
+#chat-input {
+  width: 100%;
+  border: none;
+  border-top: 1px solid #3a3a6a;
+  background: transparent;
+  padding: 8px;
+  color: #e0e0ff;
+  font-family: inherit;
+}
+
+#chat-input:focus {
+  outline: none;
+}
+
+#controls-hint {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  background: rgba(10, 10, 20, 0.7);
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  color: #888;
+}
