@@ -5,6 +5,7 @@ const { Server } = require('socket.io');
 const path = require('path');
 const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
+const ws = require('ws');
 
 const app = express();
 const server = http.createServer(app);
@@ -16,7 +17,12 @@ const PORT = process.env.PORT || 3000;
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://eqvxurybiaroxkiwtodc.supabase.co';
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxdnh1cnliaWFyb3hraXd0b2RjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2ODI4MTIsImV4cCI6MjEwNDI1ODgxMn0.UcTOxpCXKOeZwNTcV--lD7sy_aCa3iSbnz8lWfbqiuA';
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Fix for Node.js < 22 (no native WebSocket)
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  realtime: {
+    transport: ws
+  }
+});
 
 app.use(cors());
 app.use(express.json());
