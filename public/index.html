@@ -2,7 +2,9 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
   <title>Eldoria: Shadows of the Forgotten Ring</title>
   <link rel="stylesheet" href="/css/style.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -22,16 +24,15 @@
           <button id="btn-register" class="secondary">Crear Cuenta</button>
         </div>
         <p id="auth-error" class="error"></p>
-        <p class="hint">Debes registrarte e iniciar sesión para jugar.<br>Tus partidas se guardan de forma segura.</p>
+        <p class="hint">Debes registrarte e iniciar sesión para jugar.<br>Tus partidas se guardan de forma segura.<br><br>📱 Compatible con móvil y PC</p>
       </div>
     </div>
 
-    <!-- Character / Continue -->
     <div id="char-screen" class="screen hidden">
       <div class="panel wide">
         <h2>Tu Aventura</h2>
         <div id="char-list"></div>
-        <hr />
+        <hr style="border-color:#4a3528; margin:1rem 0" />
         <h3>Nueva Partida</h3>
         <input type="text" id="char-name" placeholder="Nombre del héroe" maxlength="16" />
         <select id="char-class">
