@@ -19,27 +19,35 @@
 - **Frontend**: Phaser 3 (pixel art engine) + vanilla JS
 - **Backend**: Node.js + Express + Socket.io (mismo proceso)
 - **Database**: Supabase (Postgres + Auth + Realtime) → **los datos NUNCA se borran** aunque se reinicie el servicio
-- **Deploy**: Un solo Web Service en Render (frontend + backend juntos)
+- **Deploy**: Un solo Web Service en Render con **Dockerfile** (frontend + backend juntos)
 
 ## Cómo funciona la persistencia
 
 Todos los personajes, inventarios, oro, posiciones, chat y mercado se guardan en **Supabase**. El Web Service de Render es stateless: si se reinicia, los jugadores se reconectan y recuperan su progreso desde la DB.
 
-## Deploy en Render (un solo Web Service)
+## Deploy en Render con Dockerfile (recomendado - más fácil)
 
-1. Crea un **Web Service** en [Render](https://render.com)
-2. Conecta este repo de GitHub
-3. Settings:
-   - **Runtime**: Node
-   - **Build Command**: `npm install`
-   - **Start Command**: `npm start`
-   - **Environment Variables**:
+1. Ve a [Render](https://render.com) → **New** → **Web Service**
+2. Conecta este repositorio de GitHub: `VIGARPAST-777-2/aetheria-online`
+3. Settings importantes:
+   - **Environment**: `Docker`
+   - **Dockerfile Path**: `./Dockerfile` (por defecto)
+   - **Docker Command**: deja vacío (usa el `CMD` del Dockerfile)
+   - **Environment Variables** (obligatorias):
      ```
      SUPABASE_URL=https://eqvxurybiaroxkiwtodc.supabase.co
      SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxdnh1cnliaWFyb3hraXd0b2RjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2ODI4MTIsImV4cCI6MjEwNDI1ODgxMn0.UcTOxpCXKOeZwNTcV--lD7sy_aCa3iSbnz8lWfbqiuA
      PORT=10000
      ```
-4. Deploy. Listo.
+4. Click **Create Web Service** → Deploy automático.
+
+¡Listo! Render construye la imagen Docker y levanta frontend + backend en el mismo servicio.
+
+### Alternativa sin Docker (Node nativo)
+Si prefieres:
+- **Runtime**: Node
+- **Build Command**: `npm install`
+- **Start Command**: `npm start`
 
 ## Desarrollo local
 
@@ -51,19 +59,27 @@ npm start
 
 Abre http://localhost:3000
 
+Con Docker local:
+```bash
+docker build -t aetheria-online .
+docker run -p 3000:10000 -e PORT=10000 -e SUPABASE_URL=... -e SUPABASE_ANON_KEY=... aetheria-online
+```
+
 ## Estructura
 
 ```
 /
+├── Dockerfile          # ← Deploy fácil en Render
+├── .dockerignore
 ├── package.json
-├── server.js          # Express + Socket.io + serve static
+├── server.js           # Express + Socket.io + serve static
 ├── public/
 │   ├── index.html
 │   ├── css/style.css
 │   ├── js/
-│   │   ├── main.js       # Auth + UI
-│   │   └── game.js       # Phaser scene
-│   └── assets/         # Pixel art placeholders
+│   │   ├── main.js        # Auth + UI
+│   │   └── game.js        # (lógica Phaser dentro de main.js)
+│   └── assets/          # Pixel art placeholders
 ├── .env.example
 └── README.md
 ```
