@@ -3,13 +3,22 @@ if (!char) throw new Error('No character');
 
 updateUI(char);
 
+if (typeof createMobileControls === 'function') {
+  createMobileControls('platform');
+}
+
+const uiBarH = 44;
 const config = {
   type: Phaser.AUTO,
   width: window.innerWidth,
-  height: window.innerHeight - 48,
+  height: window.innerHeight - uiBarH,
   parent: 'game-container',
   backgroundColor: '#1a2a1a',
   pixelArt: true,
+  scale: {
+    mode: Phaser.Scale.RESIZE,
+    autoCenter: Phaser.Scale.CENTER_BOTH
+  },
   physics: {
     default: 'arcade',
     arcade: { gravity: { y: 900 }, debug: false }
@@ -24,18 +33,18 @@ let platforms, enemies, powerups;
 let canControl = true;
 let facing = 1;
 let invincible = false;
+let jumpPressed = false;
+let attackPressed = false;
 
 function preload() {
   const g = this.make.graphics({ x: 0, y: 0, add: false });
 
-  // Ground
   g.fillStyle(0x3a5a2a);
   g.fillRect(0, 0, 32, 32);
   g.fillStyle(0x2a4a1a);
   g.fillRect(0, 0, 32, 8);
   g.generateTexture('ground', 32, 32);
 
-  // Platform
   g.clear();
   g.fillStyle(0x5a4030);
   g.fillRect(0, 0, 48, 16);
@@ -43,7 +52,6 @@ function preload() {
   g.fillRect(2, 2, 44, 12);
   g.generateTexture('plat', 48, 16);
 
-  // Player (side view)
   g.clear();
   g.fillStyle(0x4a7ab5);
   g.fillRect(4, 6, 16, 22);
@@ -54,17 +62,15 @@ function preload() {
   g.fillRect(14, 3, 3, 3);
   g.generateTexture('hero', 24, 32);
 
-  // Wolf enemy
   g.clear();
   g.fillStyle(0x4a4a4a);
   g.fillRect(0, 8, 28, 16);
   g.fillStyle(0x3a3a3a);
-  g.fillRect(20, 4, 12, 12); // head
+  g.fillRect(20, 4, 12, 12);
   g.fillStyle(0x8b0000);
   g.fillRect(26, 8, 3, 3);
   g.generateTexture('wolf', 32, 28);
 
-  // Shadow bat
   g.clear();
   g.fillStyle(0x2a1a2a);
   g.fillTriangle(0, 12, 16, 0, 16, 24);
@@ -73,7 +79,6 @@ function preload() {
   g.fillCircle(16, 12, 3);
   g.generateTexture('bat', 32, 24);
 
-  // Mushroom powerup
   g.clear();
   g.fillStyle(0xc45c5c);
   g.fillCircle(10, 8, 9);
@@ -81,7 +86,6 @@ function preload() {
   g.fillRect(6, 12, 8, 10);
   g.generateTexture('mushroom', 20, 24);
 
-  // Herb
   g.clear();
   g.fillStyle(0x3a8b3a);
   g.fillRect(6, 4, 4, 16);
@@ -89,7 +93,6 @@ function preload() {
   g.fillCircle(8, 4, 6);
   g.generateTexture('herb', 16, 22);
 
-  // Exit portal
   g.clear();
   g.fillStyle(0x4a3a8b);
   g.fillRect(0, 0, 32, 48);
@@ -101,24 +104,22 @@ function preload() {
 }
 
 function create() {
-  const w = 2400; // long level
+  const w = 2400;
+  const h = config.height;
 
-  // Ground
   platforms = this.physics.add.staticGroup();
   for (let x = 0; x < w; x += 32) {
-    platforms.create(x + 16, config.height - 16, 'ground');
+    platforms.create(x + 16, h - 16, 'ground');
   }
 
-  // Floating platforms
   const plats = [
-    [200, 380], [320, 320], [480, 280], [640, 340],
-    [800, 260], [960, 300], [1120, 240], [1300, 320],
-    [1480, 280], [1650, 360], [1800, 300], [2000, 250]
+    [200, h - 140], [320, h - 200], [480, h - 240], [640, h - 180],
+    [800, h - 260], [960, h - 220], [1120, h - 280], [1300, h - 200],
+    [1480, h - 240], [1650, h - 160], [1800, h - 220], [2000, h - 270]
   ];
   plats.forEach(([x, y]) => platforms.create(x, y, 'plat'));
 
-  // Player
-  player = this.physics.add.sprite(80, config.height - 80, 'hero');
+  player = this.physics.add.sprite(80, h - 80, 'hero');
   player.setCollideWorldBounds(true);
   player.setBounce(0.05);
   player.setDepth(10);
@@ -128,16 +129,14 @@ function create() {
   this.physics.add.collider(player, platforms);
 
   this.cameras.main.startFollow(player, true, 0.1, 0.1);
-  this.cameras.main.setBounds(0, 0, w, config.height);
-  this.physics.world.setBounds(0, 0, w, config.height);
+  this.cameras.main.setBounds(0, 0, w, h);
+  this.physics.world.setBounds(0, 0, w, h);
 
-  // Enemies
   enemies = this.physics.add.group();
 
-  // Wolves (patrol ground)
   const wolfPositions = [350, 700, 1100, 1550, 1900];
   wolfPositions.forEach(x => {
-    const wolf = enemies.create(x, config.height - 60, 'wolf');
+    const wolf = enemies.create(x, h - 60, 'wolf');
     wolf.setCollideWorldBounds(true);
     wolf.setBounce(0.1);
     wolf.setVelocityX(60);
@@ -148,7 +147,6 @@ function create() {
     wolf.type = 'wolf';
   });
 
-  // Bats (fly)
   const batPositions = [[500, 200], [900, 180], [1400, 160], [1750, 200]];
   batPositions.forEach(([x, y]) => {
     const bat = enemies.create(x, y, 'bat');
@@ -162,13 +160,12 @@ function create() {
 
   this.physics.add.collider(enemies, platforms);
 
-  // Power-ups
   powerups = this.physics.add.group();
   const mush = powerups.create(600, 200, 'mushroom');
   mush.body.setAllowGravity(false);
   mush.type = 'mushroom';
 
-  const herb1 = powerups.create(1000, config.height - 80, 'herb');
+  const herb1 = powerups.create(1000, h - 80, 'herb');
   herb1.type = 'herb';
   const herb2 = powerups.create(1600, 220, 'herb');
   herb2.body.setAllowGravity(false);
@@ -177,8 +174,7 @@ function create() {
   this.physics.add.overlap(player, powerups, collectPowerup, null, this);
   this.physics.add.overlap(player, enemies, hitEnemy, null, this);
 
-  // Exit portal
-  const portal = this.physics.add.staticImage(w - 60, config.height - 80, 'portal');
+  const portal = this.physics.add.staticImage(w - 60, h - 80, 'portal');
   this.physics.add.overlap(player, portal, () => {
     if (!canControl) return;
     canControl = false;
@@ -196,7 +192,6 @@ function create() {
         char.xp = 0;
         char.max_health += 20;
         char.health = char.max_health;
-        showDialogue([`¡Has subido al nivel ${char.level}!`]);
       }
       saveCharacterDB(char);
       window.location.href = '/overworld.html';
@@ -214,11 +209,20 @@ function create() {
     });
   });
 
+  const hint = document.getElementById('controls-hint');
+  if (hint && typeof isMobile !== 'undefined' && !isMobile) {
+    hint.style.display = 'block';
+  }
+
+  const introControls = (typeof isMobile !== 'undefined' && isMobile)
+    ? 'Pad izquierdo para moverte, Saltar y Atacar a la derecha.'
+    : 'Flechas/WASD mover, Espacio saltar, Z atacar.';
+
   showDialogue([
     'Has entrado en el Bosque Susurrante.',
     'Los árboles parecen observarte... y algo se mueve entre las sombras.',
     'Derrota a los enemigos, recoge objetos y llega al final del camino.',
-    'Controles: moverte con flechas/WASD, Espacio para saltar, Z para atacar.'
+    introControls
   ]);
 }
 
@@ -234,12 +238,14 @@ function update() {
     return;
   }
 
+  const m = window.mobileInput || {};
   const speed = 160;
-  if (cursors.left.isDown || wasd.left.isDown) {
+
+  if (cursors.left.isDown || wasd.left.isDown || m.left) {
     player.setVelocityX(-speed);
     facing = -1;
     player.setFlipX(true);
-  } else if (cursors.right.isDown || wasd.right.isDown) {
+  } else if (cursors.right.isDown || wasd.right.isDown || m.right) {
     player.setVelocityX(speed);
     facing = 1;
     player.setFlipX(false);
@@ -247,17 +253,24 @@ function update() {
     player.setVelocityX(0);
   }
 
-  if ((cursors.up.isDown || wasd.up.isDown || jumpKey.isDown) && player.body.blocked.down) {
+  // Jump (keyboard or mobile edge trigger)
+  const wantJump = cursors.up.isDown || wasd.up.isDown || jumpKey.isDown || m.jump;
+  if (wantJump && player.body.blocked.down && !jumpPressed) {
     player.setVelocityY(-420);
+    jumpPressed = true;
   }
+  if (!wantJump) jumpPressed = false;
 
-  // Simple attack (Z)
-  if (Phaser.Input.Keyboard.JustDown(attackKey)) {
-    // Hit nearby enemies
+  // Attack
+  const wantAttack = Phaser.Input.Keyboard.JustDown(attackKey) || (m.attack && !attackPressed);
+  if (m.attack) attackPressed = true;
+  else attackPressed = false;
+
+  if (wantAttack) {
     enemies.getChildren().forEach(e => {
       if (!e.active) return;
       const dist = Phaser.Math.Distance.Between(player.x, player.y, e.x, e.y);
-      if (dist < 45) {
+      if (dist < 50) {
         e.hp -= 15;
         e.setTint(0xff0000);
         this.time.delayedCall(100, () => e.clearTint());
@@ -272,13 +285,20 @@ function update() {
     });
   }
 
+  // Menu / exit on mobile
+  if (m.menu) {
+    m.menu = false;
+    showDialogue(['¿Salir del bosque y volver a Willowbrook?'], () => {
+      window.location.href = '/overworld.html';
+    });
+  }
+
   // Enemy AI
   enemies.getChildren().forEach(e => {
     if (!e.active) return;
     if (e.type === 'wolf') {
       if (e.x <= e.patrolMin) e.setVelocityX(60);
       if (e.x >= e.patrolMax) e.setVelocityX(-60);
-      // Chase if close
       if (Math.abs(e.x - player.x) < 120 && Math.abs(e.y - player.y) < 40) {
         e.setVelocityX(player.x > e.x ? 90 : -90);
       }
@@ -331,5 +351,5 @@ function hitEnemy(player, enemy) {
 }
 
 window.addEventListener('resize', () => {
-  game.scale.resize(window.innerWidth, window.innerHeight - 48);
+  game.scale.resize(window.innerWidth, window.innerHeight - uiBarH);
 });
