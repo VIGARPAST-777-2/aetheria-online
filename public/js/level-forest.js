@@ -134,8 +134,7 @@ function create() {
 
   enemies = this.physics.add.group();
 
-  const wolfPositions = [350, 700, 1100, 1550, 1900];
-  wolfPositions.forEach(x => {
+  [350, 700, 1100, 1550, 1900].forEach(x => {
     const wolf = enemies.create(x, h - 60, 'wolf');
     wolf.setCollideWorldBounds(true);
     wolf.setBounce(0.1);
@@ -147,8 +146,7 @@ function create() {
     wolf.type = 'wolf';
   });
 
-  const batPositions = [[500, 200], [900, 180], [1400, 160], [1750, 200]];
-  batPositions.forEach(([x, y]) => {
+  [[500, 200], [900, 180], [1400, 160], [1750, 200]].forEach(([x, y]) => {
     const bat = enemies.create(x, y, 'bat');
     bat.body.setAllowGravity(false);
     bat.setVelocityX(40);
@@ -179,12 +177,12 @@ function create() {
     if (!canControl) return;
     canControl = false;
     showDialogue([
-      '¡Has atravesado el Bosque Susurrante!',
-      'Al final del camino encuentras una piedra antigua con runas...',
-      '"Cuando el anillo brille en la oscuridad, el camino al Monte Negro se revelará."',
-      'Vuelves a Willowbrook con nuevas pistas.'
+      'Has cruzado el Bosque de los Susurros.',
+      'Al final del sendero una piedra antigua guarda runas de la Primera Era.',
+      '"Cuando la Gema de Brasas arda en la oscuridad, el paso a las Cumbres Negras se abrirá."',
+      'Regresas al Valle de Bruma con la primera pista.'
     ], () => {
-      char.map_id = 'willowbrook';
+      char.map_id = 'valle_bruma';
       char.xp = (char.xp || 0) + 50;
       char.gold = (char.gold || 0) + 30;
       if (char.xp >= 100) {
@@ -204,7 +202,7 @@ function create() {
   attackKey = this.input.keyboard.addKey('Z');
 
   this.input.keyboard.on('keydown-ESC', () => {
-    showDialogue(['¿Salir del bosque y volver a Willowbrook?'], () => {
+    showDialogue(['¿Volver al Valle de Bruma?'], () => {
       window.location.href = '/overworld.html';
     });
   });
@@ -215,13 +213,13 @@ function create() {
   }
 
   const introControls = (typeof isMobile !== 'undefined' && isMobile)
-    ? 'Pad izquierdo para moverte, Saltar y Atacar a la derecha.'
-    : 'Flechas/WASD mover, Espacio saltar, Z atacar.';
+    ? 'Pad izquierdo para moverte. Saltar y Atacar a la derecha.'
+    : 'Flechas o WASD para moverte. Espacio para saltar. Z para atacar.';
 
   showDialogue([
-    'Has entrado en el Bosque Susurrante.',
-    'Los árboles parecen observarte... y algo se mueve entre las sombras.',
-    'Derrota a los enemigos, recoge objetos y llega al final del camino.',
+    'El Bosque de los Susurros se cierra a tu alrededor.',
+    'Los árboles guardan secretos de la Primera Era... y algo más se mueve entre ellos.',
+    'Avanza, recoge lo que encuentres y llega al final del sendero.',
     introControls
   ]);
 }
@@ -253,7 +251,6 @@ function update() {
     player.setVelocityX(0);
   }
 
-  // Jump (keyboard or mobile edge trigger)
   const wantJump = cursors.up.isDown || wasd.up.isDown || jumpKey.isDown || m.jump;
   if (wantJump && player.body.blocked.down && !jumpPressed) {
     player.setVelocityY(-420);
@@ -261,7 +258,6 @@ function update() {
   }
   if (!wantJump) jumpPressed = false;
 
-  // Attack
   const wantAttack = Phaser.Input.Keyboard.JustDown(attackKey) || (m.attack && !attackPressed);
   if (m.attack) attackPressed = true;
   else attackPressed = false;
@@ -285,15 +281,13 @@ function update() {
     });
   }
 
-  // Menu / exit on mobile
   if (m.menu) {
     m.menu = false;
-    showDialogue(['¿Salir del bosque y volver a Willowbrook?'], () => {
+    showDialogue(['¿Volver al Valle de Bruma?'], () => {
       window.location.href = '/overworld.html';
     });
   }
 
-  // Enemy AI
   enemies.getChildren().forEach(e => {
     if (!e.active) return;
     if (e.type === 'wolf') {
@@ -314,10 +308,10 @@ function collectPowerup(player, item) {
   if (item.type === 'mushroom') {
     char.max_health += 25;
     char.health = char.max_health;
-    showDialogue(['¡Champiñón de Poder! Vida máxima +25']);
+    showDialogue(['Fruto de Poder. Vida máxima +25']);
   } else if (item.type === 'herb') {
     char.health = Math.min(char.max_health, char.health + 40);
-    showDialogue(['Hierba Curativa. +40 HP']);
+    showDialogue(['Hierba de Brasas. +40 HP']);
   }
   updateUI(char);
   saveCharacterDB(char);
@@ -342,7 +336,7 @@ function hitEnemy(player, enemy) {
 
   if (char.health <= 0) {
     canControl = false;
-    showDialogue(['Has caído... Pero la historia no termina aquí.', 'Vuelves a Willowbrook herido.'], () => {
+    showDialogue(['Caes... pero el camino de Oryndel aún no termina.', 'Despiertas de nuevo en el Valle de Bruma.'], () => {
       char.health = Math.floor(char.max_health * 0.3);
       saveCharacterDB(char);
       window.location.href = '/overworld.html';

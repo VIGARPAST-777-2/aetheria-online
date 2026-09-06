@@ -3,7 +3,6 @@ if (!char) throw new Error('No character');
 
 updateUI(char);
 
-// Show mobile controls if touch device
 if (typeof createMobileControls === 'function') {
   createMobileControls('overworld');
 }
@@ -136,17 +135,17 @@ function create() {
   doors.push({
     zone: this.add.zone(18 * 32, 12 * 32 + 28, 20, 16).setOrigin(0.5),
     target: 'house-elder',
-    label: 'Casa del Anciano'
+    label: 'Casa del Sabio Orlen'
   });
   doors.push({
     zone: this.add.zone(32 * 32, 11 * 32 + 28, 20, 16).setOrigin(0.5),
     target: 'house-villager',
-    label: 'Casa del Pueblo'
+    label: 'Casa del Valle'
   });
   doors.push({
     zone: this.add.zone(25 * 32, 26 * 32 + 28, 20, 16).setOrigin(0.5),
     target: 'level-forest',
-    label: 'Camino al Bosque Susurrante'
+    label: 'Sendero del Bosque de los Susurros'
   });
 
   player = this.physics.add.sprite(char.position_x || 400, char.position_y || 400, 'player');
@@ -156,7 +155,6 @@ function create() {
   player.setOffset(4, 18);
 
   this.cameras.main.startFollow(player, true, 0.12, 0.12);
-  // Slightly less zoom on small screens
   const zoom = window.innerWidth < 600 ? 1.4 : 1.8;
   this.cameras.main.setZoom(zoom);
   this.cameras.main.setBounds(0, 0, mapW * 32, mapH * 32);
@@ -168,20 +166,20 @@ function create() {
   sage.body.setSize(16, 12);
   npcs.push({
     sprite: sage,
-    name: 'Anciano Eldrin',
+    name: 'Sabio Orlen',
     dialogue: [
-      'Ah, joven aventurero... Siento una oscuridad creciente en el este.',
-      'Hace poco encontré este anillo en el río. Brilla con una luz extraña...',
-      'Lévalo al Bosque Susurrante. Allí encontrarás respuestas... o peligros.',
-      'Ten cuidado. Las sombras ya se mueven entre los árboles.'
+      'Los vientos del este traen ceniza, joven. Algo antiguo se agita bajo las montañas.',
+      'Esta gema de brasas apareció en el río hace tres noches. Arde sin consumirse.',
+      'Llévala al Bosque de los Susurros. Allí las piedras aún recuerdan la Primera Era.',
+      'Si las sombras te siguen... no mires atrás demasiado tiempo.'
     ],
     onTalk: () => {
       let inv = typeof char.inventory === 'string' ? JSON.parse(char.inventory) : (char.inventory || []);
-      if (!inv.find(i => i.id === 'forgotten_ring')) {
-        inv.push({ id: 'forgotten_ring', name: 'Anillo Olvidado', type: 'key', desc: 'Un anillo antiguo que emite un leve brillo' });
+      if (!inv.find(i => i.id === 'ember_gem')) {
+        inv.push({ id: 'ember_gem', name: 'Gema de Brasas', type: 'key', desc: 'Una gema que arde con luz propia' });
         char.inventory = inv;
         saveCharacterDB(char);
-        showDialogue(['¡Has recibido el Anillo Olvidado!'], null);
+        showDialogue(['Has recibido la Gema de Brasas.'], null);
       }
     }
   });
@@ -191,11 +189,11 @@ function create() {
   villager.setImmovable(true);
   npcs.push({
     sprite: villager,
-    name: 'Mira la Granjera',
+    name: 'Lira del Valle',
     dialogue: [
-      'Los lobos del bosque se están acercando más de lo normal...',
-      'Si vas al Bosque Susurrante, lleva hierbas curativas.',
-      'Y si ves una sombra con ojos rojos... ¡corre!'
+      'Los lobos del bosque bajan más cerca cada luna.',
+      'Si vas por el sendero, lleva hierbas de brasas. Curán las heridas profundas.',
+      'Y si ves ojos rojos entre los árboles... no te detengas.'
     ]
   });
 
@@ -206,15 +204,15 @@ function create() {
   shadow.patrolMax = 44 * 32;
   npcs.push({
     sprite: shadow,
-    name: 'Sombra Acechante',
+    name: 'Sombra del Valle',
     isEnemy: true,
-    dialogue: ['¡Grrraaah!', 'La oscuridad te reclama...'],
+    dialogue: ['...'],
     onTalk: () => {
-      showDialogue(['¡La sombra te ataca!'], () => {
+      showDialogue(['La sombra se lanza sobre ti.'], () => {
         char.health = Math.max(1, char.health - 15);
         updateUI(char);
         saveCharacterDB(char);
-        showDialogue(['Pierdes 15 de vida. La sombra se desvanece entre los árboles...']);
+        showDialogue(['Pierdes 15 de vida. La sombra se disuelve en la niebla.']);
         shadow.setVisible(false);
         shadow.body.enable = false;
       });
@@ -227,7 +225,6 @@ function create() {
   wasd = this.input.keyboard.addKeys({ up: 'W', down: 'S', left: 'A', right: 'D' });
   interactKey = this.input.keyboard.addKey('E');
 
-  // Show PC hint only on non-touch
   const hint = document.getElementById('controls-hint');
   if (hint && typeof isMobile !== 'undefined' && !isMobile) {
     hint.style.display = 'block';
@@ -238,11 +235,11 @@ function create() {
     this.time.delayedCall(600, () => {
       const controlsMsg = (typeof isMobile !== 'undefined' && isMobile)
         ? 'Usa el pad de la izquierda para moverte y el botón Hablar para interactuar.'
-        : 'Usa WASD o las flechas para moverte. Pulsa E para hablar o entrar en casas.';
+        : 'Usa WASD o las flechas para moverte. Pulsa E para hablar o entrar.';
       showDialogue([
-        'Bienvenido a Willowbrook, una tranquila aldea en las tierras de Eldoria.',
-        'Durante generaciones, la paz ha reinado aquí... pero algo está cambiando.',
-        'Habla con el Anciano Eldrin. Él parece inquieto.',
+        'Has llegado al Valle de Bruma, en el corazón de Oryndel.',
+        'Durante generaciones este valle conoció la calma. Ahora la niebla trae mensajes extraños.',
+        'Habla con el Sabio Orlen. Él ha sentido el cambio antes que nadie.',
         controlsMsg
       ]);
     });
@@ -292,31 +289,24 @@ function update() {
     char.position_y = Math.round(player.y);
   }
 
-  // Interact (keyboard JustDown or mobile action edge)
   const actionNow = Phaser.Input.Keyboard.JustDown(interactKey) || (m.action && !actionPressed);
   if (m.action) actionPressed = true;
   else actionPressed = false;
 
-  if (actionNow) {
-    tryInteract();
-  }
+  if (actionNow) tryInteract();
 
-  // Menu button on mobile
   if (m.menu) {
     m.menu = false;
-    showDialogue(['Menú de pausa (próximamente). Por ahora continúa tu aventura.']);
+    showDialogue(['El camino continúa. Pronto habrá más opciones de viaje.']);
   }
 
-  // Enemy AI
   npcs.forEach(n => {
     if (n.isEnemy && n.sprite.visible && n.sprite.body) {
       const s = n.sprite;
       if (s.x <= s.patrolMin) s.setVelocityX(45);
       if (s.x >= s.patrolMax) s.setVelocityX(-45);
       const dist = Phaser.Math.Distance.Between(player.x, player.y, s.x, s.y);
-      if (dist < 90) {
-        this.physics.moveToObject(s, player, 70);
-      }
+      if (dist < 90) this.physics.moveToObject(s, player, 70);
     }
   });
 }
@@ -325,20 +315,21 @@ function enterArea(target, label) {
   canInteract = false;
   char.position_x = Math.round(player.x);
   char.position_y = Math.round(player.y);
+  char.map_id = 'valle_bruma';
   saveCharacterDB(char);
 
   if (target === 'level-forest') {
-    showDialogue([`Entras en el ${label}...`], () => {
+    showDialogue([`Tomas el ${label}...`], () => {
       window.location.href = '/level-forest.html';
     });
   } else if (target === 'house-elder') {
     showDialogue([
-      'Entras en la casa del Anciano Eldrin.',
-      'Hay libros antiguos, un fuego crepitante y un mapa de Eldoria en la mesa.',
-      '(Más adelante podrás explorar el interior en vista de plataformas.)'
+      'Entras en la casa del Sabio Orlen.',
+      'Libros polvorientos, un brasero y un mapa antiguo de Oryndel cubren la mesa.',
+      'El interior se abrirá más adelante. Por ahora habla con él fuera.'
     ], () => { canInteract = true; });
   } else {
-    showDialogue([`Entras en ${label}.`, 'El interior aún se está preparando...'], () => { canInteract = true; });
+    showDialogue([`Entras en ${label}.`, 'El interior aún guarda silencio...'], () => { canInteract = true; });
   }
 }
 
