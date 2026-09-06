@@ -1,41 +1,24 @@
 # Oryndel: Crown of Embers
 
-RPG de historia en pixel art. Explora el reino de Oryndel, habla con sus habitantes, entra en bosques y ruinas, y descubre el secreto de la Corona de Brasas.
+RPG de historia en pixel art. Explora el reino de Oryndel.
 
-## Características
+## Auth local (sin Supabase)
 
-- Historia original de fantasía medieval
-- Mapa en vista de pájaro + niveles de plataformas
-- Combate, enemigos que patrullan y persiguen, power-ups
-- Guardado en la nube (Supabase)
-- Compatible con PC y móvil (controles táctiles)
+Registro e inicio de sesión funcionan **sin ninguna clave de Supabase**.
+Cuentas y partidas se guardan en el servidor (`data/store.json`).
 
-## Capítulos actuales
-
-1. **Valle de Bruma** — la aldea de origen
-2. **Bosque de los Susurros** — primer nivel de plataformas
-
-## Auth y variables de entorno (Render)
-
-En Render → Environment añade:
+En Render no hace falta ninguna variable de Supabase. Solo:
 
 ```
-SUPABASE_URL=https://eqvxurybiaroxkiwtodc.supabase.co
-SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxdnh1cnliaWFyb3hraXd0b2RjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2ODI4MTIsImV4cCI6MjEwNDI1ODgxMn0.UcTOxpCXKOeZwNTcV--lD7sy_aCa3iSbnz8lWfbqiuA
-SUPABASE_SERVICE_ROLE_KEY=tu_service_role_key_aqui
 PORT=10000
 ```
 
-La **service_role** la encuentras en Supabase → Project Settings → API → `service_role` (secret).
-
-También recomienda en Supabase → Authentication → Providers → Email:
-- Desactivar "Confirm email" mientras pruebas (o déjalo y confirma los correos).
-
 ## Deploy
 
-Docker en Render (Environment = Docker). El Dockerfile ya está en el repo.
+Docker en Render. Environment = Docker.
 
-## Controles
+## Nota sobre persistencia en Render free
 
-**PC:** WASD / flechas · E hablar · Espacio saltar · Z atacar  
-**Móvil:** pad virtual + botones en pantalla
+En el plan free de Render el disco se reinicia al redeployar.
+Las cuentas se mantienen mientras el servicio esté en marcha.
+Si quieres persistencia real más adelante, se puede volver a conectar Supabase o un disco persistente.

@@ -1,19 +1,3 @@
-const SUPABASE_URL = 'https://eqvxurybiaroxkiwtodc.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxdnh1cnliaWFyb3hraXd0b2RjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2ODI4MTIsImV4cCI6MjEwNDI1ODgxMn0.UcTOxpCXKOeZwNTcV--lD7sy_aCa3iSbnz8lWfbqiuA';
-
-const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-// Restaurar sesión si existe
-(async () => {
-  const raw = sessionStorage.getItem('oryndel_session');
-  if (raw) {
-    try {
-      const s = JSON.parse(raw);
-      await supabaseClient.auth.setSession(s);
-    } catch (_) {}
-  }
-})();
-
 function getCharacter() {
   const raw = sessionStorage.getItem('oryndel_char') || sessionStorage.getItem('eldoria_char');
   if (!raw) {
@@ -27,22 +11,41 @@ function saveCharacterLocal(char) {
   sessionStorage.setItem('oryndel_char', JSON.stringify(char));
 }
 
+function getToken() {
+  return sessionStorage.getItem('oryndel_token') || localStorage.getItem('oryndel_token') || '';
+}
+
 async function saveCharacterDB(char) {
   saveCharacterLocal(char);
-  const payload = {
-    position_x: char.position_x,
-    position_y: char.position_y,
-    map_id: char.map_id,
-    health: char.health,
-    mana: char.mana,
-    gold: char.gold,
-    level: char.level,
-    xp: char.xp,
-    inventory: typeof char.inventory === 'string' ? JSON.parse(char.inventory) : (char.inventory || []),
-    equipment: typeof char.equipment === 'string' ? JSON.parse(char.equipment) : (char.equipment || {}),
-    updated_at: new Date().toISOString()
-  };
-  await supabaseClient.from('characters').update(payload).eq('id', char.id);
+  const token = getToken();
+  if (!token) return;
+
+  try {
+    await fetch('/api/characters/' + char.id, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + token
+      },
+      body: JSON.stringify({
+        position_x: char.position_x,
+        position_y: char.position_y,
+        map_id: char.map_id,
+        health: char.health,
+        mana: char.mana,
+        max_health: char.max_health,
+        max_mana: char.max_mana,
+        gold: char.gold,
+        level: char.level,
+        xp: char.xp,
+        inventory: typeof char.inventory === 'string' ? JSON.parse(char.inventory) : (char.inventory || []),
+        equipment: typeof char.equipment === 'string' ? JSON.parse(char.equipment) : (char.equipment || {}),
+        stats: char.stats
+      })
+    });
+  } catch (_) {
+    // ignore network errors while playing
+  }
 }
 
 function updateUI(char) {

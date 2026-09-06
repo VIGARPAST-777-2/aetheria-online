@@ -1,34 +1,34 @@
-let supabase = null;
 let currentUser = null;
-let currentSession = null;
+let accessToken = null;
 
 const authScreen = document.getElementById('auth-screen');
 const charScreen = document.getElementById('char-screen');
 const errorEl = document.getElementById('auth-error');
 const charError = document.getElementById('char-error');
 
-async function initSupabase() {
-  try {
-    const res = await fetch('/api/config');
-    const cfg = await res.json();
-    supabase = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
-  } catch {
-    // fallback
-    supabase = window.supabase.createClient(
-      'https://eqvxurybiaroxkiwtodc.supabase.co',
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxdnh1cnliaWFyb3hraXd0b2RjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2ODI4MTIsImV4cCI6MjEwNDI1ODgxMn0.UcTOxpCXKOeZwNTcV--lD7sy_aCa3iSbnz8lWfbqiuA'
-    );
+function authHeaders() {
+  return {
+    'Content-Type': 'application/json',
+    ...(accessToken ? { Authorization: 'Bearer ' + accessToken } : {})
+  };
+}
+
+function saveSession(user, session) {
+  currentUser = user;
+  accessToken = session?.access_token || null;
+  if (accessToken) {
+    localStorage.setItem('oryndel_token', accessToken);
+    localStorage.setItem('oryndel_user', JSON.stringify(user));
   }
 }
 
-function setSession(session) {
-  currentSession = session;
-  if (session?.access_token) {
-    supabase.auth.setSession({
-      access_token: session.access_token,
-      refresh_token: session.refresh_token
-    });
-  }
+function clearSession() {
+  currentUser = null;
+  accessToken = null;
+  localStorage.removeItem('oryndel_token');
+  localStorage.removeItem('oryndel_user');
+  sessionStorage.removeItem('oryndel_char');
+  sessionStorage.removeItem('oryndel_session');
 }
 
 document.getElementById('btn-login').onclick = async () => {
@@ -52,8 +52,7 @@ document.getElementById('btn-login').onclick = async () => {
       errorEl.textContent = data.error || 'Error al iniciar sesión';
       return;
     }
-    currentUser = data.user;
-    setSession(data.session);
+    saveSession(data.user, data.session);
     showCharScreen();
   } catch (err) {
     errorEl.textContent = 'No se pudo conectar con el servidor';
@@ -83,8 +82,7 @@ document.getElementById('btn-register').onclick = async () => {
     }
 
     if (data.session) {
-      currentUser = data.user;
-      setSession(data.session);
+      saveSession(data.user, data.session);
       errorEl.textContent = '';
       showCharScreen();
     } else {
@@ -95,10 +93,8 @@ document.getElementById('btn-register').onclick = async () => {
   }
 };
 
-document.getElementById('btn-logout').onclick = async () => {
-  if (supabase) await supabase.auth.signOut();
-  currentUser = null;
-  currentSession = null;
+document.getElementById('btn-logout').onclick = () => {
+  clearSession();
   charScreen.classList.add('hidden');
   authScreen.classList.remove('hidden');
 };
@@ -110,33 +106,36 @@ async function showCharScreen() {
 }
 
 async function loadCharacters() {
-  const { data, error } = await supabase
-    .from('characters')
-    .select('*')
-    .eq('user_id', currentUser.id)
-    .order('updated_at', { ascending: false });
-
   const list = document.getElementById('char-list');
   list.innerHTML = '';
 
-  if (error || !data || data.length === 0) {
-    list.innerHTML = '<p style="color:#7a6a55">Aún no tienes partidas. ¡Crea tu héroe!</p>';
-    return;
-  }
+  try {
+    const res = await fetch('/api/characters', { headers: authHeaders() });
+    if (!res.ok) {
+      list.innerHTML = '<p style="color:#7a6a55">Error al cargar partidas.</p>';
+      return;
+    }
+    const data = await res.json();
 
-  data.forEach(char => {
-    const div = document.createElement('div');
-    div.className = 'char-card';
-    const place = char.map_id === 'willowbrook' || char.map_id === 'valle_bruma'
-      ? 'Valle de Bruma'
-      : (char.map_id || 'Oryndel');
-    div.innerHTML = `
-      <span><strong>${char.name}</strong> — ${char.class} Lv.${char.level}<br>
-      <small style="color:#8a7a65">${place}</small></span>
-      <span style="color:#c4a35a">🪙 ${char.gold}</span>`;
-    div.onclick = () => continueGame(char);
-    list.appendChild(div);
-  });
+    if (!data || data.length === 0) {
+      list.innerHTML = '<p style="color:#7a6a55">Aún no tienes partidas. ¡Crea tu héroe!</p>';
+      return;
+    }
+
+    data.forEach(char => {
+      const div = document.createElement('div');
+      div.className = 'char-card';
+      const place = char.map_id === 'valle_bruma' ? 'Valle de Bruma' : (char.map_id || 'Oryndel');
+      div.innerHTML = `
+        <span><strong>${char.name}</strong> — ${char.class} Lv.${char.level}<br>
+        <small style="color:#8a7a65">${place}</small></span>
+        <span style="color:#c4a35a">🪙 ${char.gold}</span>`;
+      div.onclick = () => continueGame(char);
+      list.appendChild(div);
+    });
+  } catch {
+    list.innerHTML = '<p style="color:#7a6a55">Error de conexión.</p>';
+  }
 }
 
 document.getElementById('btn-create-char').onclick = async () => {
@@ -149,54 +148,55 @@ document.getElementById('btn-create-char').onclick = async () => {
     return;
   }
 
-  const { data, error } = await supabase.from('characters').insert({
-    user_id: currentUser.id,
-    name,
-    class: cls,
-    level: 1,
-    xp: 0,
-    health: 100,
-    max_health: 100,
-    mana: 40,
-    max_mana: 40,
-    position_x: 320,
-    position_y: 280,
-    map_id: 'valle_bruma',
-    gold: 20,
-    inventory: [
-      { id: 'iron_blade', name: 'Hoja de Hierro Viejo', type: 'weapon', power: 6 },
-      { id: 'ember_herb', name: 'Hierba de Brasas', type: 'consumable', heal: 35, qty: 3 }
-    ],
-    equipment: { weapon: 'iron_blade' },
-    stats: { str: 12, agi: 10, int: 8, vit: 11 }
-  }).select().single();
-
-  if (error) {
-    charError.textContent = error.message.includes('unique') ? 'Ese nombre ya existe' : error.message;
-    return;
+  try {
+    const res = await fetch('/api/characters', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ name, class: cls })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      charError.textContent = data.error || 'Error al crear personaje';
+      return;
+    }
+    continueGame(data);
+  } catch {
+    charError.textContent = 'No se pudo conectar';
   }
-
-  continueGame(data);
 };
 
 function continueGame(char) {
   sessionStorage.setItem('oryndel_char', JSON.stringify(char));
   sessionStorage.setItem('oryndel_user', currentUser.id);
-  if (currentSession) {
-    sessionStorage.setItem('oryndel_session', JSON.stringify({
-      access_token: currentSession.access_token,
-      refresh_token: currentSession.refresh_token
-    }));
+  if (accessToken) {
+    sessionStorage.setItem('oryndel_token', accessToken);
   }
   window.location.href = '/overworld.html';
 }
 
+// Auto login from localStorage
 (async () => {
-  await initSupabase();
-  const { data: { session } } = await supabase.auth.getSession();
-  if (session) {
-    currentUser = session.user;
-    currentSession = session;
-    showCharScreen();
+  const token = localStorage.getItem('oryndel_token');
+  const userRaw = localStorage.getItem('oryndel_user');
+  if (!token || !userRaw) return;
+
+  accessToken = token;
+  try {
+    const res = await fetch('/api/me', { headers: authHeaders() });
+    if (res.ok) {
+      const data = await res.json();
+      currentUser = data.user;
+      showCharScreen();
+    } else {
+      clearSession();
+    }
+  } catch {
+    // offline: still try with cached user
+    try {
+      currentUser = JSON.parse(userRaw);
+      showCharScreen();
+    } catch {
+      clearSession();
+    }
   }
 })();
