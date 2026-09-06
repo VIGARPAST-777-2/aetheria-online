@@ -1,7 +1,7 @@
 {
-  "name": "aetheria-online",
-  "version": "1.0.0",
-  "description": "Pixel Art Top-Down MMO RPG - Aetheria Online",
+  "name": "eldoria-rpg",
+  "version": "1.1.0",
+  "description": "Eldoria: Shadows of the Forgotten Ring - Pixel Art Story RPG (Mario RPG style)",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
